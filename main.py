@@ -34,8 +34,6 @@ data_loader_b = get_loader(os.path.join(config['data_root'], 'a'),
                         'afhq', 'train', 1)
 
 
-
-
 train_display_images_a = torch.stack([data_loader_a.dataset[i][0] for i in range(display_size)]).cuda()
 train_display_images_b = torch.stack([data_loader_b.dataset[i][0] for i in range(display_size)]).cuda()
 

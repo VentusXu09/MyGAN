@@ -3,7 +3,7 @@ import time
 
 import torch
 import yaml
-from torchvision.datasets import ImageFolder
+from torchvision.datasets import ImageFolder as torchIF
 from torchvision import transforms as T
 from torch.utils import data
 import torchvision.utils as vutils
@@ -33,7 +33,7 @@ def get_loader(image_dir, crop_size=178, image_size=128,
     transform_list = [T.Resize(image_size)] + transform_list
     transform_list = [T.RandomHorizontalFlip()] + transform_list
     transform = T.Compose(transform_list)
-    dataset = ImageFolder(image_dir, transform=transform)
+    dataset = torchIF(image_dir, transform=transform)
     loader = data.DataLoader(dataset=dataset, batch_size=batch_size, shuffle=(mode=='train'), drop_last=True, num_workers=num_workers)
     return loader
 
@@ -79,3 +79,70 @@ def write_2images(image_outputs, display_image_num, image_directory, postfix):
     n = len(image_outputs)
     __write_images(image_outputs[0:n//2], display_image_num, '%s/gen_a2b_%s.jpg' % (image_directory, postfix))
     __write_images(image_outputs[n//2:n], display_image_num, '%s/gen_b2a_%s.jpg' % (image_directory, postfix))
+
+###############################################################################
+# Code from
+# https://github.com/pytorch/vision/blob/master/torchvision/datasets/folder.py
+# Modified the original code so that it also loads images from the current
+# directory as well as the subdirectories
+###############################################################################
+
+import torch.utils.data as data
+
+from PIL import Image
+import os
+import os.path
+
+IMG_EXTENSIONS = [
+    '.jpg', '.JPG', '.jpeg', '.JPEG',
+    '.png', '.PNG', '.ppm', '.PPM', '.bmp', '.BMP',
+]
+
+def default_loader(path):
+    return Image.open(path).convert('RGB')
+
+def is_image_file(filename):
+    return any(filename.endswith(extension) for extension in IMG_EXTENSIONS)
+
+
+def make_dataset(dir):
+    images = []
+    assert os.path.isdir(dir), '%s is not a valid directory' % dir
+
+    for root, _, fnames in sorted(os.walk(dir)):
+        for fname in fnames:
+            if is_image_file(fname):
+                path = os.path.join(root, fname)
+                images.append(path)
+
+    return images
+
+
+class ImageFolder(data.Dataset):
+
+    def __init__(self, root, transform=None, return_paths=False,
+                 loader=default_loader):
+        imgs = sorted(make_dataset(root))
+        if len(imgs) == 0:
+            raise(RuntimeError("Found 0 images in: " + root + "\n"
+                               "Supported image extensions are: " +
+                               ",".join(IMG_EXTENSIONS)))
+
+        self.root = root
+        self.imgs = imgs
+        self.transform = transform
+        self.return_paths = return_paths
+        self.loader = loader
+
+    def __getitem__(self, index):
+        path = self.imgs[index]
+        img = self.loader(path)
+        if self.transform is not None:
+            img = self.transform(img)
+        if self.return_paths:
+            return img, path
+        else:
+            return img
+
+    def __len__(self):
+        return len(self.imgs)
